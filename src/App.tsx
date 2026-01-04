@@ -16,8 +16,8 @@ import { CreateNft } from "./components/CreateNft";
 import { PlaybackHistory } from "./components/PlaybackHistory";
 import { BalanceDisplay } from "./components/BalanceDisplay";
 
-// Placeholder Address - **YOU MUST DEPLOY CONTRACT AND UPDATE THIS**
-const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; 
+// Deployed on Qie Testnet
+const CONTRACT_ADDRESS = "0xdD91ee143277438168B81eC6f1AEdFc44Fd9F9F9"; 
 // Simplified ABI for MusifyNFT
 const CONTRACT_ABI = [
   "function mintToken(string memory _tokenURI, uint256 _price, uint96 _royaltyFeeNumerator, address[] memory _payees, uint256[] memory _shares) public returns (uint256)",
@@ -207,11 +207,6 @@ function App() {
     }
     if (!provider || !account) {
         alert("Wallet not connected!");
-        return;
-    }
-
-    if (CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
-        alert("Smart Contract Address not set! Please deploy contract and update CONTRACT_ADDRESS in App.tsx");
         return;
     }
 
