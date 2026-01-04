@@ -1,5 +1,7 @@
 # MusifyNFT - Decentralized Music NFT Marketplace
 
+[🌐 Live Demo](https://musify-omega.vercel.app/)
+
 ## 🎵 Overview
 
 MusifyNFT is a revolutionary blockchain-based music NFT marketplace built on **Qie Blockchain**. It empowers musicians and creators to tokenize their music, implement fair royalty distribution, and monetize their work through a transparent, decentralized licensing system.
