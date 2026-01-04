@@ -16,8 +16,8 @@ import { CreateNft } from "./components/CreateNft";
 import { PlaybackHistory } from "./components/PlaybackHistory";
 import { BalanceDisplay } from "./components/BalanceDisplay";
 
-// Deployed on Qie Testnet
-const CONTRACT_ADDRESS = "0xdD91ee143277438168B81eC6f1AEdFc44Fd9F9F9"; 
+// Deployed on Qie Testnet (London EVM compatible)
+const CONTRACT_ADDRESS = "0xB01f8ce6924FC535636C17d9ca491c0Fea4602d5"; 
 // Simplified ABI for MusifyNFT
 const CONTRACT_ABI = [
   "function mintToken(string memory _tokenURI, uint256 _price, uint96 _royaltyFeeNumerator, address[] memory _payees, uint256[] memory _shares) public returns (uint256)",
