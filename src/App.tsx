@@ -109,7 +109,7 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        await web3auth.initModal();
+        await (web3auth as any).initModal();
         setProvider(web3auth.provider);
         if (web3auth.connected) {
           setLoggedIn(true);
