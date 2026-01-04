@@ -15,7 +15,7 @@ export function NftCard({ nft, onSelect }: NftCardProps) {
       <div className="nft-card-info">
         <h3>{nft.trackTitle}</h3>
         <p>by {nft.artistName}</p>
-        <div className="nft-price">{nft.price} SOL</div>
+        <div className="nft-price">{nft.price} QIE</div>
       </div>
     </div>
   );

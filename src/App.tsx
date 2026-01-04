@@ -1,7 +1,5 @@
 import "./App.css";
 import { useEffect, useState } from "react";
-import { web3auth } from "./web3authContext";
-import { IProvider } from "@web3auth/base";
 import { ethers } from "ethers";
 import axios from "axios";
 import { db } from "./firebaseConfig";
@@ -22,28 +20,18 @@ import { BalanceDisplay } from "./components/BalanceDisplay";
 const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000"; 
 // Simplified ABI for MusifyNFT
 const CONTRACT_ABI = [
-  "function mintToken(string memory _tokenURI, uint256 _price, uint96 _royaltyFeeNumerator) public returns (uint256)",
+  "function mintToken(string memory _tokenURI, uint256 _price, uint96 _royaltyFeeNumerator, address[] memory _payees, uint256[] memory _shares) public returns (uint256)",
   "function buyLicense(uint256 tokenId) public payable",
   "event NftMinted(uint256 indexed tokenId, string tokenURI, address indexed creator, uint256 price)"
 ];
 
-// Komponen Navbar yang Diperbarui
-function Navbar({ currentPage, setCurrentPage, logout, provider, transactionCount }: any) {
-    const [account, setAccount] = useState<string | null>(null);
-    const [copyText, setCopyText] = useState('Copy');
+const QIE_CHAIN_ID_HEX = "0x7BF"; // 1983
+const QIE_RPC_URL = "https://rpc1testnet.qie.digital";
+const QIE_EXPLORER_URL = "https://testnet.qie.digital/";
 
-    useEffect(() => {
-        const getAccount = async () => {
-            if (provider) {
-                const ethersProvider = new ethers.BrowserProvider(provider);
-                const signer = await ethersProvider.getSigner();
-                setAccount(await signer.getAddress());
-            } else {
-                setAccount(null);
-            }
-        };
-        getAccount();
-    }, [provider, transactionCount]);
+// Komponen Navbar yang Diperbarui
+function Navbar({ currentPage, setCurrentPage, logout, provider, transactionCount, account }: any) {
+    const [copyText, setCopyText] = useState('Copy');
 
     const handleCopyAddress = () => {
         if (account) {
@@ -69,7 +57,7 @@ function Navbar({ currentPage, setCurrentPage, logout, provider, transactionCoun
             </nav>
             <div className="user-section">
                 <div className="user-info">
-                    {account && (
+                    {account ? (
                         <div className="wallet-info">
                             <small>{account.substring(0, 6)}...{account.substring(account.length - 4)}</small>
                             <button onClick={handleCopyAddress} className="copy-button" title="Copy address">
@@ -81,10 +69,16 @@ function Navbar({ currentPage, setCurrentPage, logout, provider, transactionCoun
                             </button>
                             <BalanceDisplay provider={provider} refreshTrigger={transactionCount} />
                         </div>
+                    ) : (
+                        <button onClick={logout} className="login-button-small">
+                            Connect Wallet
+                        </button>
                     )}
-                    <button onClick={logout} className="logout-button">
-                        Log Out
-                    </button>
+                     {account && (
+                        <button onClick={logout} className="logout-button">
+                             Disconnect
+                        </button>
+                     )}
                 </div>
             </div>
         </header>
@@ -92,8 +86,8 @@ function Navbar({ currentPage, setCurrentPage, logout, provider, transactionCoun
 }
 
 function App() {
-  const [provider, setProvider] = useState<IProvider | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [provider, setProvider] = useState<any | null>(null); // Metamask provider
+  const [account, setAccount] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [nfts, setNfts] = useState<MusicNFT[]>([]);
@@ -107,40 +101,83 @@ function App() {
   const PINATA_JWT = import.meta.env.VITE_PINATA_JWT;
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        await (web3auth as any).initModal();
-        setProvider(web3auth.provider);
-        if (web3auth.connected) {
-          setLoggedIn(true);
+    // Check if wallet is already connected
+    const checkConnection = async () => {
+        if ((window as any).ethereum) {
+            const ethProvider = (window as any).ethereum;
+            try {
+                const accounts = await ethProvider.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    setAccount(accounts[0]);
+                    setProvider(ethProvider);
+                    // Ensure Qie chain
+                    await switchNetwork(ethProvider);
+                }
+            } catch (e) {
+                console.error("Error checking connection:", e);
+            }
         }
-      } catch (error) {
-        console.error(error);
-      } finally {
         setLoading(false);
-      }
     };
-    init();
+    checkConnection();
   }, []);
 
+  const switchNetwork = async (ethProvider: any) => {
+      try {
+          await ethProvider.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: QIE_CHAIN_ID_HEX }],
+          });
+      } catch (switchError: any) {
+          // This error code indicates that the chain has not been added to MetaMask.
+          if (switchError.code === 4902) {
+              try {
+                  await ethProvider.request({
+                      method: 'wallet_addEthereumChain',
+                      params: [
+                          {
+                              chainId: QIE_CHAIN_ID_HEX,
+                              chainName: 'Qie Blockchain',
+                              rpcUrls: [QIE_RPC_URL],
+                              nativeCurrency: {
+                                  name: 'QIE Token',
+                                  symbol: 'QIE',
+                                  decimals: 18,
+                              },
+                              blockExplorerUrls: [QIE_EXPLORER_URL],
+                          },
+                      ],
+                  });
+              } catch (addError) {
+                   console.error("Failed to add Qie network:", addError);
+                   alert("Please add Qie Blockchain to your wallet manually.");
+              }
+          } else {
+              console.error("Failed to switch network:", switchError);
+          }
+      }
+  };
+
   const login = async () => {
-    if (!web3auth) {
-      console.log("web3auth not initialized yet");
-      return;
+    if (!(window as any).ethereum) {
+        alert("Please install MetaMask or another Web3 wallet!");
+        return;
     }
-    const web3authProvider = await web3auth.connect();
-    setProvider(web3authProvider);
-    setLoggedIn(true);
+    try {
+        const ethProvider = (window as any).ethereum;
+        const accounts = await ethProvider.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+        setProvider(ethProvider);
+        await switchNetwork(ethProvider);
+    } catch (e) {
+        console.error("Connection failed:", e);
+    }
   };
 
   const logout = async () => {
-    if (!web3auth) {
-      console.log("web3auth not initialized yet");
-      return;
-    }
-    await web3auth.logout();
+    setAccount(null);
     setProvider(null);
-    setLoggedIn(false);
+    // Metamask does not support programmatic disconnect
   };
 
   useEffect(() => {
@@ -168,7 +205,7 @@ function App() {
         alert("Pinata JWT is not configured.");
         return;
     }
-    if (!provider) {
+    if (!provider || !account) {
         alert("Wallet not connected!");
         return;
     }
@@ -203,7 +240,6 @@ function App() {
             }
         };
 
-        // Upload metadata to IPFS
         const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
         const metadataFile = new File([metadataBlob], "metadata.json");
         const metadataUrl = await uploadToPinata(metadataFile);
@@ -214,32 +250,30 @@ function App() {
         const signer = await ethersProvider.getSigner();
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         
-        // Convert price to Wei
         const priceWei = ethers.parseEther(newData.price.toString());
-        // Calculate royalty (basis points, e.g., 5% = 500) - Simplified to use first recipient share for now or total
-        // Note: Contract expects uint96 for royalty numerator (denominator is 10000)
-        // Taking the total share (should be 100 in input, but for royalty fee let's say we set a standard or derive)
-        // For this demo, let's assume specific creator royalty is 5% hardcoded or derived. 
-        // Real implementation would split payment. Here we just set ERC2981 royalty.
-        const royaltyFee = 500; // 5%
+        
+        // Prepare Revenue Splitting
+        const payees = newData.royaltyInfo.recipients.map(r => r.address);
+        const shares = newData.royaltyInfo.recipients.map(r => Math.round(Number(r.share))); 
+        
+        const totalShare = shares.reduce((a, b) => a + b, 0);
+        if (totalShare !== 100) {
+            throw new Error(`Total share usage must be 100%. Current: ${totalShare}%`);
+        }
 
-        const tx = await contract.mintToken(metadataUrl, priceWei, royaltyFee);
+        const royaltyFee = 500; 
+
+        const tx = await contract.mintToken(metadataUrl, priceWei, royaltyFee, payees, shares);
         setMintingStatus('Confirming transaction...');
         const receipt = await tx.wait();
         
-        // Extract Token ID from event
-        // Note: basic parsing, robust apps verify log topics
-        // Assuming NftMinted is the last event or finding it:
-        // For simplicity in this hackathon, we proceed.
-        // In real app we get tokenId from receipt.logs
-
         if (receipt.status === 1) {
             setMintingStatus('Saving to database...');
             const recipientAddresses = newData.royaltyInfo.recipients.map(r => r.address);
-            const creatorAddress = await signer.getAddress();
+            // const creatorAddress = account; // Use account from state or signer
             
             const creatorLicense: License = {
-                ownerAddress: creatorAddress,
+                ownerAddress: account,
                 purchaseDate: Timestamp.now(),
                 expiryDate: Timestamp.fromDate(new Date('9999-12-31')),
             };
@@ -247,17 +281,16 @@ function App() {
             await addDoc(collection(db, "nfts"), {
                 trackTitle: newData.trackTitle,
                 price: newData.price,
-                imageUrl: imageUrl, // Storing separate for UI speed, but is in metadata
+                imageUrl: imageUrl, 
                 audioUrl: audioUrl,
-                creator: creatorAddress,
+                creator: account,
                 licensees: [creatorLicense],
-                licenseeAddresses: [creatorAddress],
+                licenseeAddresses: [account],
                 artistName: 'Unknown Artist',
                 createdAt: serverTimestamp(),
                 royaltyInfo: newData.royaltyInfo,
                 recipientAddresses: recipientAddresses,
                 tokenURI: metadataUrl,
-                // On-chain ID would be ideal to store here too
             });
             setCurrentPage('marketplace');
             setTransactionCount(c => c + 1);
@@ -275,12 +308,6 @@ function App() {
   };
 
   const handlePurchaseSuccess = async (nftId: string, buyerAddress: string, txHash: string) => {
-    // This is called AFTER on-chain purchase succeeds in NftDetail (which needs update too)
-    // Or we handle functionality here if passed up.
-    // NOTE: NftDetail usually handles the UI interaction.
-    // For this refactor, we assume NftDetail will handle the interaction returning success.
-    
-    // In Firebase update
     const nftDocRef = doc(db, "nfts", nftId);
     const selectedNft = nfts.find(n => n.id === nftId);
     if (!selectedNft) return;
@@ -312,17 +339,14 @@ function App() {
   };
 
   const handlePlayTrack = async (nftId: string, nftTitle: string) => {
-    if (!provider) {
+    if (!account) {
       console.log("User not logged in, cannot log play history.");
       return;
     }
     try {
-        const ethersProvider = new ethers.BrowserProvider(provider);
-        const signer = await ethersProvider.getSigner();
-        const address = await signer.getAddress();
-
+        // Just use account from state, no need to sign for reading usually, but for logging we just need ID
         await addDoc(collection(db, "playHistory"), {
-            userId: address,
+            userId: account,
             nftId: nftId,
             nftTitle: nftTitle,
             playedAt: serverTimestamp(),
@@ -343,8 +367,6 @@ function App() {
   }
 
   const renderCurrentPage = () => {
-    // Note: NftDetail needs to be updated to support buying via Ethers
-    // Passing provider and contract details down might be needed or handled via Context
     if (selectedNft) {
         return <NftDetail 
             nft={selectedNft} 
@@ -356,27 +378,15 @@ function App() {
             contractAbi={CONTRACT_ABI}
         />;
     }
-    // Getting account for dashboard
+
+    // Pass account directly to dashboards
     const UserDashboardWrapper = () => {
-        const [address, setAddress] = useState<string | null>(null);
-        useEffect(() => {
-            if(provider) {
-                new ethers.BrowserProvider(provider).getSigner().then(s => s.getAddress()).then(setAddress);
-            }
-        }, [provider]);
-        return address ? <UserDashboard userAddress={address} onSelectNft={handleSelectNft} /> : <div className="loading">Loading user...</div>;
+        return account ? <UserDashboard userAddress={account} onSelectNft={handleSelectNft} /> : <div className="loading">Please connect wallet</div>;
     }
 
     const CreatorDashboardWrapper = () => {
-        const [address, setAddress] = useState<string | null>(null);
-        useEffect(() => {
-            if(provider) {
-                new ethers.BrowserProvider(provider).getSigner().then(s => s.getAddress()).then(setAddress);
-            }
-        }, [provider]);
-        return address ? <CreatorDashboard creatorAddress={address} onSelectNft={handleSelectNft} /> : <div className="loading">Loading creator...</div>;
+        return account ? <CreatorDashboard creatorAddress={account} onSelectNft={handleSelectNft} /> : <div className="loading">Please connect wallet</div>;
     }
-
 
     switch (currentPage) {
       case 'marketplace':
@@ -402,18 +412,18 @@ function App() {
   };
 
   if (loading) {
-      return <div className="loading">Loading Web3Auth...</div>;
+      return <div className="loading">Loading...</div>;
   }
 
-  if (!loggedIn) {
+  if (!account) {
     return (
         <div className="login-container">
             <div className="login-box">
                 <h1 className="logo">Musify<span>NFT (QIE)</span></h1>
                 <h2>The Future of Music Ownership</h2>
-                <p>Login with your social account to start collecting and creating music NFTs on Qie Blockchain.</p>
+                <p>Connect your wallet to start collecting and creating music NFTs on Qie Blockchain.</p>
                 <button onClick={login} className="login-button">
-                    Connect with Web3Auth
+                    Connect Wallet (MetaMask)
                 </button>
             </div>
         </div>
@@ -428,6 +438,7 @@ function App() {
             logout={logout}
             provider={provider}
             transactionCount={transactionCount}
+            account={account}
         />
         <main className="main-content">
             {renderCurrentPage()}

@@ -43,13 +43,13 @@ export function PlatformExplorer() {
                                 <tr key={tx.id}>
                                     <td>
                                         {tx.txHash ? (
-                                            <a href={`https://explorer.solana.com/tx/${tx.txHash}?cluster=devnet`} target="_blank" rel="noopener noreferrer" className="explorer-link">
+                                            <a href={`https://mainnet.qie.digital/tx/${tx.txHash}`} target="_blank" rel="noopener noreferrer" className="explorer-link">
                                                 {tx.txHash.substring(0, 8)}...
                                             </a>
                                         ) : 'N/A'}
                                     </td>
                                     <td>{tx.buyerAddress.substring(0, 8)}...</td>
-                                    <td>{tx.totalAmount.toFixed(4)} SOL</td>
+                                    <td>{tx.totalAmount.toFixed(4)} QIE</td>
                                     <td>{tx.purchaseDate.toDate().toLocaleString()}</td>
                                 </tr>
                             ))}

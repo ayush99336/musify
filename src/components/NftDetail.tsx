@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { IProvider } from "@web3auth/base";
 import { ethers } from "ethers";
 import { MusicNFT } from '../types';
 
@@ -8,7 +7,7 @@ interface NftDetailProps {
   onBack: () => void;
   onPurchaseSuccess: (nftId: string, buyerAddress: string, txHash: string) => void;
   onPlayTrack: (nftId: string, nftTitle: string) => void;
-  provider: IProvider | null;
+  provider: any;
   contractAddress: string;
   contractAbi: string[];
 }

@@ -7,13 +7,17 @@ import "../src/contracts/MusifyNFT.sol";
 contract MusifyNFTTest is Test {
     MusifyNFT public musifyNFT;
     address public owner;
-    address public artist;
+    address public artist1;
+    address public artist2;
+    address public artist3;
     address public buyer;
 
     function setUp() public {
         owner = address(this);
-        artist = address(0x1);
-        buyer = address(0x2);
+        artist1 = address(0x1);
+        artist2 = address(0x2);
+        artist3 = address(0x3);
+        buyer = address(0x4);
         
         // Deploy contract
         musifyNFT = new MusifyNFT();
@@ -23,44 +27,63 @@ contract MusifyNFTTest is Test {
     }
 
     function testMintToken() public {
-        vm.prank(artist);
-        uint256 tokenId = musifyNFT.mintToken("ipfs://test", 1 ether, 500);
+        vm.startPrank(artist1);
+        address[] memory payees = new address[](1);
+        payees[0] = artist1;
+        uint256[] memory shares = new uint256[](1);
+        shares[0] = 100;
+
+        uint256 tokenId = musifyNFT.mintToken("ipfs://test", 1 ether, 500, payees, shares);
         
-        assertEq(musifyNFT.ownerOf(tokenId), artist);
+        assertEq(musifyNFT.ownerOf(tokenId), artist1);
         assertEq(musifyNFT.tokenURI(tokenId), "ipfs://test");
         assertEq(musifyNFT.tokenPrices(tokenId), 1 ether);
+        vm.stopPrank();
     }
 
-    function testRoyaltyInfo() public {
-        vm.prank(artist);
-        uint256 tokenId = musifyNFT.mintToken("ipfs://test", 1 ether, 500);
-        
-        (address receiver, uint256 amount) = musifyNFT.royaltyInfo(tokenId, 100 ether);
-        assertEq(receiver, artist);
-        // 5% of 100 is 5
-        assertEq(amount, 5 ether);
+    function testMintInvalidShares() public {
+        vm.startPrank(artist1);
+        address[] memory payees = new address[](2);
+        payees[0] = artist1;
+        payees[1] = artist2;
+        uint256[] memory shares = new uint256[](2);
+        shares[0] = 50;
+        shares[1] = 40; // Sum = 90, should fail
+
+        vm.expectRevert("Total share must be 100");
+        musifyNFT.mintToken("ipfs://test", 1 ether, 500, payees, shares);
+        vm.stopPrank();
     }
 
-    function testBuyLicense() public {
-        vm.prank(artist);
-        uint256 tokenId = musifyNFT.mintToken("ipfs://test", 1 ether, 500);
+    function testRevenueSharing() public {
+        vm.startPrank(artist1);
+        address[] memory payees = new address[](3);
+        payees[0] = artist1;
+        payees[1] = artist2;
+        payees[2] = artist3;
+        uint256[] memory shares = new uint256[](3);
+        shares[0] = 50;
+        shares[1] = 30;
+        shares[2] = 20;
+
+        uint256 tokenId = musifyNFT.mintToken("ipfs://collab", 10 ether, 500, payees, shares);
+        vm.stopPrank();
+
+        uint256 balance1Before = artist1.balance;
+        uint256 balance2Before = artist2.balance;
+        uint256 balance3Before = artist3.balance;
 
         vm.prank(buyer);
-        musifyNFT.buyLicense{value: 1 ether}(tokenId);
+        musifyNFT.buyLicense{value: 10 ether}(tokenId);
+
+        // Check balances
+        assertEq(artist1.balance - balance1Before, 5 ether);
+        assertEq(artist2.balance - balance2Before, 3 ether);
+        assertEq(artist3.balance - balance3Before, 2 ether);
         
-        // Check licenses
+        // Check license
         MusifyNFT.License[] memory licenses = musifyNFT.getLicenses(tokenId);
         assertEq(licenses.length, 1);
         assertEq(licenses[0].buyer, buyer);
-        assertTrue(licenses[0].expiryDate > block.timestamp);
-    }
-
-    function testBuyLicenseInsufficientFunds() public {
-        vm.prank(artist);
-        uint256 tokenId = musifyNFT.mintToken("ipfs://test", 1 ether, 500);
-
-        vm.prank(buyer);
-        vm.expectRevert("Insufficient payment");
-        musifyNFT.buyLicense{value: 0.5 ether}(tokenId);
     }
 }

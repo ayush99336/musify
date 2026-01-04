@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { IProvider } from "@web3auth/base";
 import { ethers } from "ethers";
 
 interface BalanceDisplayProps {
-  provider: IProvider | null;
+  provider: any;
   refreshTrigger: number;
 }
 

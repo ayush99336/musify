@@ -79,7 +79,7 @@ export function CreateNft({ onSubmit, onBack, isMinting, mintingStatus }: Create
                 <input type="text" value={trackTitle} onChange={(e) => setTrackTitle(e.target.value)} required />
             </div>
             <div className="form-group">
-                <label>Price (SOL)</label>
+                <label>Price (QIE)</label>
                 <input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} step="0.1" required />
             </div>
             {/* DIPERBARUI: Input file untuk cover image */}
